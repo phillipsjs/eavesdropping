@@ -1,0 +1,695 @@
+---
+title: "Materials for Eavesdropping: What is it good for?"
+author: "Jonathan Phillips & Matthew Mandelkern"
+date: "May 2020"
+output:
+  pdf_document: default
+  word_document: default
+csl: apa.csl
+bibliography: modality.bib
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE,dpi=300,fig.width=7)
+
+#rm(list=ls())
+
+blackGreyPalette <- c("#2C3539", "#999999") 
+library(tidyverse)
+library(lme4)
+library(lsr)
+library(knitr)
+library(grid)
+library(xtable)
+
+```
+
+## Knobe & Yalcin 2014: Falsity and Retraction 
+
+### Participants
+
+```{r participantsd1,echo=FALSE}
+
+d1 <- read.csv("data/study1.csv",stringsAsFactors = F)
+
+```
+
+We collected a sample of `r length(unique(d1$ResponseId))` participants ($M_{age}$ = `r round(mean(d1$Age,na.rm=T),digits=2)`; $SD_{age}$ = `r round(sd(d1$Age,na.rm=T),digits=2)`; `r table(d1$Gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com]( www.mturk.com)).
+
+### Procedure
+
+Participants were randomly assigned to one of four conditions, two of which were exact replications of the conditions in Experiment 5 in [@knobe2014epistemic]. As in [@knobe2014epistemic], all participants read a version of the following scenario, which varied only in what exactly Sally said. For example, in the non-modal variant, Sally makes a non-modal claim about Joe's location. 
+
+>*Non-modal variant*: Sally and George are talking about whether Joe is in Boston. Sally carefully considers all the information she has available and concludes that there is no way to know for sure. Sally says: "Joe is in Boston."
+
+> Just then, George gets an email from Joe. The email says that Joe is in Berkeley. So George says: "No, he isn't in Boston. He is
+in Berkeley."
+
+In the *Epistemic modal variant*, Sally instead says "Joe might be in Boston", and critically in the *Attitude report variant*, Sally says "I think Joe is in Boston." No other changes were made to the original materials.
+
+After reading one of these variants, participants either asnwered a question about whether it would be appropriate for Sally to retract what she said or answered a question about whether what Sally said was false:
+
+> *Retraction question*: We want to know whether it would be appropriate for Sally to take back what she said (for example, by saying "Ok, scratch that"). So please tell us whether you agree or disagree with the following statement:
+
+> * It would be appropriate for Sally to take back what she said.
+
+> *Falsity question*: We want to know whether what Sally said is false. So please tell us whether you agree or disagree with the following statement:
+
+> * What Sally said was false. 
+
+In both cases, participants indicated their agreement on a scale from 1 ('Completely disagree') to 7 ('Completely agree'). Finally, all participants completed a brief demographic questionnaire.
+
+### Results
+
+```{r tidyd1, echo=FALSE, warning=FALSE, message=FALSE}
+
+d1$time <- rowSums(d1[,grep("Page.Submit",names(d1))],na.rm=T)
+#hist(d1$time[d1$time<100], breaks=50)
+#d1 <- d1[d1$time>15,] Looks like a reasonable cutoff if you want to do time-based exclusion. 
+
+d1l <- d1 %>% select(c(9,18:19,24:25,30:31,48)) %>% 
+             gather(question,value,-c(1,8),na.rm=T) %>%
+             mutate(question = factor(question),
+                    statement = factor(c("Attitude","Attitude","Modal","Modal","Non-modal","Non-modal")[question]),
+                    question = factor(c("Falsity","Retraction","Falsity","Retraction","Falsity","Retraction")[question])
+                    )
+
+d1.sum <- d1l %>% group_by(statement,question) %>% 
+                    summarise(N    = length(value),
+                    mean = mean(value, na.rm=TRUE),
+                    sd   = sd(value,na.rm=TRUE),
+                    se   = sd / sqrt(N) )
+
+  
+```
+
+```{r analysis_d1, echo=FALSE, warning=FALSE}
+
+d1.aov <- anova(lm(value ~ statement * question, data=d1l))
+d1.eta <- etaSquared(lm(value ~ statement * question, data=d1l))
+
+anova.table <- xtable(d1.aov)
+
+#print.xtable(anova.table,comment = F)
+
+
+## Replication analyses
+
+d1.rep <- anova(lm(value ~ statement*question, data=d1l[d1l$statement!="Attitude",]))
+d1.rep_eta <- etaSquared(lm(value ~ statement*question, data=d1l[d1l$statement!="Attitude",]))
+
+### Non-modal
+NM.FvR.t <- t.test(d1l$value[d1l$statement=="Non-modal" & d1l$question=="Falsity"]
+                   ,d1l$value[d1l$statement=="Non-modal" & d1l$question=="Retraction"])
+NM.FvR.d <- cohensD(d1l$value[d1l$statement=="Non-modal" & d1l$question=="Falsity"]
+                        ,d1l$value[d1l$statement=="Non-modal" & d1l$question=="Retraction"])
+### Modal
+M.FvR.t <- t.test(d1l$value[d1l$statement=="Modal" & d1l$question=="Falsity"]
+                   ,d1l$value[d1l$statement=="Modal" & d1l$question=="Retraction"])
+M.FvR.d <- cohensD(d1l$value[d1l$statement=="Modal" & d1l$question=="Falsity"]
+                        ,d1l$value[d1l$statement=="Modal" & d1l$question=="Retraction"])
+
+## Extension analyses
+
+### Attitude
+A.FvR.t <- t.test(d1l$value[d1l$statement=="Attitude" & d1l$question=="Falsity"]
+                   ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Retraction"])
+A.FvR.d <- cohensD(d1l$value[d1l$statement=="Attitude" & d1l$question=="Falsity"]
+                        ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Retraction"])
+
+### Attitude vs. Modal Retraction
+
+# var.test(d1l$value[d1l$statement=="Modal" & d1l$question=="Retraction"]
+#          ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Retraction"])
+R.modalvAtt.t <- t.test(d1l$value[d1l$statement=="Modal" & d1l$question=="Retraction"]
+                        ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Retraction"],var.equal = T)
+R.modalvAtt.d <- cohensD(d1l$value[d1l$statement=="Modal" & d1l$question=="Retraction"]
+                        ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Retraction"])
+
+### Attitude vs. Modal Falsity
+
+# var.test(d1l$value[d1l$statement=="Modal" & d1l$question=="Falsity"]
+#          ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Falsity"])
+F.modalvAtt.t <- t.test(d1l$value[d1l$statement=="Modal" & d1l$question=="Falsity"]
+                        ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Falsity"],var.equal = T)
+F.modalvAtt.d <- cohensD(d1l$value[d1l$statement=="Modal" & d1l$question=="Falsity"]
+                        ,d1l$value[d1l$statement=="Attitude" & d1l$question=="Falsity"])
+
+```
+
+### Replication
+To statistically characterize the pattern of responses (see Fig. 1), we first asked whether we replicated the original finding in [@knobe2014epistemic].\footnote{An overall analysis of variance revealed that participants' agreement ratings were significantly affected by whether the agent uttered a non-modal assertion, an epistemic modal claim, or an attitude report, $F =$ `r round(d1.aov[2,4],digits=2)`, $p <$ `r max(.001,round(d1.aov[2,5],digits=3))`, $\eta_p^2 =$ `r round(d1.eta[1,2],digits=3)`. We also observed a significant effect of whether participants were asked about whether it would be appropriate for the agent to retract her claim or whether the agent's claim was false, $F =$ `r round(d1.aov[1,4],digits=2)`, $p <$ `r max(.001,round(d1.aov[1,5],digits=3))`, $\eta_p^2 =$ `r round(d1.eta[2,2],digits=3)`. More importantly, we also observed an interaction between these two variables, $F =$ `r round(d1.aov[3,4],digits=2)`, $p <$ `r max(.001,round(d1.aov[3,5],digits=3))`,  $\eta_p^2 =$ `r round(d1.eta[3,2],digits=3)`, meaning that the pattern of  participants' judgments about the different claims differed depending on whether they were asked the retraction or falsity question.} Similar to [@knobe2014epistemic], we observed the critical interaction effect between question-type (Retraction vs. Falsity) and statement-type (Non-modal vs. Modal), $F$ (`r d1.rep$Df[3]`,`r d1.rep$Df[4]`) = `r round(d1.rep[3,4],digits=2)`, $p <$ `r max(.001, round(d1.rep[3,5], digits=3))`, $\eta_p^2 =$ `r round(d1.rep_eta[3,2], digits=3)`. This interaction was driven by the fact that we observed no significant difference between judgments of falsity and retraction for non-modal claims, $t$(`r round(NM.FvR.t$parameter[[1]], digits=2)`$) =$ `r round(NM.FvR.t$statistic[[1]], digits=2)`, $p =$ `r round(NM.FvR.t$p.value[[1]], digits=3)`, $d =$ `r round(NM.FvR.d, digits=3)`, but did observe a large difference between falsity and retraction judgments for epistemic modal claims, $t$(`r round(M.FvR.t$parameter[[1]], digits=2)`$) =$ `r round(M.FvR.t$statistic[[1]], digits=2)`, $p <$ `r max(.001,round(M.FvR.t$p.value[[1]], digits=3))`, $d =$ `r round(M.FvR.d, digits=3)`.
+
+### Extension
+
+We next asked whether the observed pattern for epistemic modal claims extended to attitude reports. Indeed, we found a similar pattern: when the agent's claim involved an attitude report rather than an epistemic modal claim, participants were more likely to judge that the agent should retract the claim than that the claim was false $t$(`r round(A.FvR.t$parameter[[1]], digits=2)`$) =$ `r round(A.FvR.t$statistic[[1]], digits=2)`, $p <$ `r max(.001,round(A.FvR.t$p.value[[1]], digits=3))`, $d =$ `r round(A.FvR.d, digits=3)`. Moreover, we found no significant difference in participants' agreement that retraction would be appropriate when the the claim involved an epistemic modal or an attitude report, $t$(`r round(R.modalvAtt.t$parameter[[1]],digits=2)`$) =$ `r round(R.modalvAtt.t$statistic, digits=2)`, $p =$ `r round(R.modalvAtt.t$p.value,digits=3)`, $d =$ `r round(R.modalvAtt.d, digits=3)`, and found that, if anything, participants more agreed with the falsity of the claim when it involved an attitude report than when it involved an epistemic modal, $t$(`r round(F.modalvAtt.t$parameter[[1]],digits=2)`$) =$ `r round(F.modalvAtt.t$statistic,digits=3)` $p =$ `r max(.001,round(F.modalvAtt.t$p.value,digits=3))`, $d =$ `r round(F.modalvAtt.d, digits=3)`. 
+
+
+```{r d1_graphs, echo=F, warning=F, fig.width=6.5, fig.height=5.25, fig.cap= "Participants' mean level of agreement with the retraction or falsity claims. Errors bars indicate +/- 1 *SEM*."}
+
+d1.sum$question <- factor(d1.sum$question, levels=c("Retraction","Falsity"))
+d1.sum$statement <- factor(d1.sum$statement, levels=c("Non-modal","Modal","Attitude"))
+
+d1.plot <- ggplot(d1.sum, aes(x=statement, y=mean, fill=question)) +
+  geom_bar(stat="identity", position="dodge") +
+  scale_fill_manual(values=blackGreyPalette) +
+  ylab("Agreement with retraction/falsity") +
+  xlab("") +
+  coord_cartesian(ylim=c(1,7)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1, position=position_dodge(.9)) +
+  theme_bw() +
+  theme(
+    plot.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,legend.position=c(.85,.9)
+    ,legend.title=element_blank()
+    ,legend.text=element_text(size=rel(1.25))
+    ,axis.text.x=element_text(size=rel(1.75))
+    ,axis.ticks=element_blank()
+    ,axis.text.y=element_text(size=rel(1.25))
+    ,axis.title=element_text(size=rel(1))
+    ,strip.text = element_text(size = rel(1))
+    ,axis.title.y = element_text(size=rel(1.25), vjust = 0.75)
+    ,axis.title.x = element_text(vjust = 0.75)
+  )
+
+print(d1.plot)
+```
+
+
+
+
+## Beddor & Egan 2018: Falsity and QUDs
+
+### Participants
+
+```{r participants}
+
+d2 <- read.csv("data/study2.csv",stringsAsFactors = F)
+
+```
+
+We collected a sample of `r length(unique(d2$ResponseId))` participants ($M_{age}$ = `r round(mean(d2$age,na.rm=T),digits=2)`; $SD_{age}$ = `r round(sd(d2$age,na.rm=T),digits=2)`; `r table(d2$gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com]( www.mturk.com)).
+
+### Procedure
+
+Participants were randomly assigned to one of four conditions, two of which were exact replications of the conditions in Experiment 5 in [@beddor2018might]. As in [@beddor2018might], all participants in these conditions began by reading the following preamble: 
+
+>*Preamble*: John is worried he might have strep throat. He goes to his primary care physician and she runs an initial test that indicates that there is a 75% chance that John does not have strep. Based on the initial test results, John's doctor says: "You probably don't have strep throat."
+
+Then participants were randomly assigned to one of two conditions which continued this. In one condition, the question under discussion was meant to target the prejacent of the doctor's utterance:
+
+> *QUD-Prejacent*: John comes back two days later to find out the results of the throat culture, and sees a different doctor. The throat culture comes up positive, which indicates there is a 90% chance that John has strep throat. John has not yet seen the results of these tests, but his new doctor has. 
+>
+>John asks the new doctor: "I'm trying to figure out whether I need to take antibiotics. My primary care physician told me, 'You probably don't have strep.' Is what she said true?"
+ 
+Participants then answered the question, "Which of the following responses would be correct?" by selecting either "No, it's not" or "Yes, it is".
+
+In the other condition, the question under discussion targeted the doctor's competence: 
+
+> *QUD-Competence*: John comes back two days later to find out the results of the throat culture, and sees a different doctor. The throat culture comes up positive, which indicates there is a 90% chance that John has strep throat. 
+
+> But now John wants to know whether his primary care physician made a mistake administering the initial test, so he asks: "I'm trying to figure out whether I can rely on my primary care physician. She told me, 'You probably don't have strep'. Is what she said true?" 
+
+> The new doctor reviews the initial tests, and confirms that John's primary care physician had not made any mistakes interpreting the results. 
+
+Participants then answered the question, "Given this, which of the following responses would be correct?" by selecting either "No, it's not" or "Yes, it is".
+
+As in [@beddor2018might], participants then completed a comprehension check question: "In the scenario you just read, which of the following did John's primary care physician say?" The options were (a) You probably have strep. (b) You probably don't have strep. (c) You probably have pneumonia. (d) You probably don't have pneumonia.
+
+In the other two conditions, which extended those of [@beddor2018might], we simply replaced the doctor's utterance, "You probably don't have strep throat" with the utterance "I don't think you have strep throat". Accordingly, we also changed the comprehension check question such that the options were:  (a) I think you have strep. (b) I don't think you have strep. (c) I think you have pneumonia. (d) I don't think you have pneumonia. No other changes were made to the original materials.
+
+Finally, all participants were asked to write a complete sentence about what the study was about and then completed a brief demographic questionnaire.
+
+### Results
+
+```{r clean, echo=FALSE, warning=FALSE, message=FALSE}
+
+d2$time <- rowSums(d2[,c(21,26,32,37)], na.rm = T)
+#hist(d2$time[d2$time<120],breaks=100,col="Red") ## seems like something like 20 seconds is about the right cutoff if you want to do that
+
+d2$control <- F
+d2$control[as.numeric(factor(d2$ThinComp))==3] <- T
+d2$control[as.numeric(factor(d2$ProbComp))==3] <- T
+
+excludeN <- table(d2$control)[[1]]
+
+d2l <- d2 %>% select(c(9,18,23,29,34,46,47)) %>%
+             filter(control) %>%
+             #filter(time>20) %>%
+             gather(condition,response,-c(1,6:7), na.rm = T) %>%
+             mutate(condition = factor(condition),
+                    QUD = factor(c("Competence","Prejacent","Competence","Prejacent")[condition]),
+                    QUD = factor(QUD, levels=c("Prejacent","Competence")),
+                    term = factor(c("Probably","Probably","Think","Think"))[condition],
+                    response = factor(response),
+                    response = factor(c(NA,"No","Yes")[response])
+                    ) %>%
+             filter(!is.na(response)) 
+  
+```
+
+```{r analysis, echo=FALSE, warning=FALSE}
+
+ 
+d2.sums <- aggregate(response ~ term * QUD, FUN=table, data=d2l)
+
+d2.No.probPrej <- round(d2.sums[1,3][1]/(d2.sums[1,3][1]+d2.sums[1,3][2])*100,digits=2)
+d2.No.thinPrej <- round(d2.sums[2,3][1]/(d2.sums[2,3][1]+d2.sums[2,3][2])*100,digits=2)
+d2.No.probComp <- round(d2.sums[3,3][1]/(d2.sums[3,3][1]+d2.sums[3,3][2])*100,digits=2)
+d2.No.thinComp <- round(d2.sums[4,3][1]/(d2.sums[4,3][1]+d2.sums[4,3][2])*100,digits=2)
+
+
+d2.glm <- summary(glm(factor(response) ~ QUD * term, data=d2l, family = binomial))
+
+
+
+```
+
+We excluded the `r excludeN` participants who failed to answer the comprehension check question correctly, and analyzed the responses from the remaining `r length(d2l$ResponseId)` participants. Replicating [@beddor2018might], when the utterance involved the term 'probably', we found that `r d2.No.probPrej`% of participants in the *QUD-Prejacent* condition selected "No, it's not", while only `r  d2.No.probComp`% of the participants in the *QUD-Competence* condition did.
+
+More importantly, we found a strikingly similar pattern of respons when the utterance was instead about the what the doctor believed.  We again found that `r d2.No.thinPrej`% of participants in the *QUD-Prejacent* condition selected "No, it's not", while only `r d2.No.thinComp`% of the participants in the *QUD-Competence* condition did (Figure 2). 
+
+Moreover, analyzing all of the data using a genearlized linear model, we found only a main effect of the QUD manipulation, $z =$ `r round(d2.glm$coefficients[2,3], digits=3)`, $p <$ `r max(.001,round(d2.glm$coefficients[2,4], digits=3))`, and no effect of whether the utterance involved an epistemic modal or an interaction between them, $p \geq$ `r min(round(d2.glm$coefficients[3,4], digits=3), round(d2.glm$coefficients[4,4], digits=3))`.
+
+```{r fig1, fig.cap="Participants' responses as a function of both whether the utterenace involved an espistemic modal term and whether the QUD intended to target the prejacent or the doctor's competence.", warning=FALSE}
+
+d2.fig <- d2l %>%
+             ggplot(aes(x=response,fill=response)) +
+                    geom_histogram(stat="count") +
+                    ylab("Number of Responses") +
+                    xlab("") +
+                    facet_grid(term~QUD) + 
+                    scale_fill_manual(values=blackGreyPalette) +
+                    theme_bw() +
+                    theme(
+                      plot.background = element_blank()
+                      ,panel.grid.major = element_blank()
+                      ,panel.grid.minor = element_blank()
+                      ,legend.position="null"
+                      ,legend.title=element_blank()
+                      ,legend.text=element_text(size=rel(1))
+                      ,axis.text.x=element_text(size=rel(1))
+                      ,axis.text.y=element_text(size=rel(1))
+                      ,axis.title=element_text(size=rel(1))
+                      ,axis.title.y = element_text(vjust = 0.75)
+                      ,plot.title = element_text(face="bold",vjust=.75,size=rel(1.75))
+                    )
+
+
+
+plot(d2.fig)
+
+```
+
+
+## Khoo & Phillips 2019: Consistency
+
+### Participants
+
+```{r participants2, echo=FALSE}
+
+d3 <- read.csv("data/study3.csv")
+
+d3$Gender <- factor(c("Male","Female")[d3$Gender])
+
+##Age and Gender
+d3.age <- matrix(c("mean",mean(d3$Age,na.rm=T),"sd",sd(d3$Age,na.rm=T),"n",length(d3$Age)),ncol = 3)
+d3.gender <- table(d3$Gender, exclude=NULL)
+```
+
+In this experiment, `r d3.age[2,3]` participants (*M*~age~=`r round(mean(d3$Age, na.rm=T),digits=2)`, *SD*~age~=`r round(sd(d3$Age, na.rm=T),digits=2)`; `r d3.gender[[1]]` females) were recruited through Amazon Mechanical Turk ([http://www.mturk.com](http://www.mturk.com)).
+
+```{r education, echo=F, results="asis"}
+
+d3$Education <- factor(c("Grammar School","Highschool or Equivalent","Vocational/Technical School",
+                                 "Some College","College Graduate (4 years)","Master's Degree",
+                                 "Doctoral Degree (PhD)","Professional Degree (JD,MD,etc.)","Other")[d3$Education])
+
+d3$Education <- factor(d3$Education, levels=c("Grammar School","Highschool or Equivalent","Vocational/Technical School",
+                                 "Some College","College Graduate (4 years)","Master's Degree",
+                                 "Professional Degree (JD,MD,etc.)","Doctoral Degree (PhD)","Other"))
+d3$Education <- factor(d3$Education)
+
+education <- xtable(table(d3$Education),  caption = "Reported highest level of education completed")
+colnames(education) <- "n"
+
+#print.xtable(education,comment=F)  
+```
+
+### Procedure and Materials
+
+Following [@khoo2019new] Participants completed a single trials which each involved reading a vignette about an ongoing police investigation. In all cases, participants first read the following **background** information:
+
+>The police are on the trail of Fat Tony, a local mobster. This morning, they learn of a rumor that Fat Tony has died at the docks.
+	
+>The Chief of the Police assigns Inspector A to examine the evidence at the docks. Meanwhile, the District Attorney assigns Inspector B to review the footage from the security camera at the docks.
+
+How this background continued dependend on the condition to which participants wre randomly assigned. Participants were assigned to either an **Utterances** or an **Assessments** condition, and additionally to make assessments of either epistemic **Modal** claim, a **Non-Modal** claim, or and **Indexical** claim. 
+
+In the **Modal Utterances** case, the background continued as follows:
+
+>Inspector A takes a good look at the evidence down by the docks, and concludes that it suggests, but does not prove, that Fat Tony died at the docks. The Chief calls Inspector A at the docks and asks him, "What have you found?"
+	
+>**Inspector A replies, "Fat Tony could have died at the docks."**
+	
+>Meanwhile, Inspector B reviews the security camera footage and concludes that the footage proves that Fat Tony did \textbf{not} die at the docks. The District Attorney calls Inspector B and asks him, ``What have you found?''
+	
+> **Inspector B replies, "Fat Tony couldn't have died at the docks."**
+
+
+By contrast, in the **Modal Assessments case**, the background instead continued:
+
+>Inspector A takes a good look at the evidence down by the docks, and concludes that it suggests, but does not prove, that Fat Tony died at the docks. Afterwards, he goes home. That evening, Inspector A and his wife watch the Chief of Police talking with reporters on TV. The reporters on the news ask the Chief what his investigation had found. 
+	
+>**The Chief tells the reporters: "Fat Tony could have died at the docks."**
+	
+>Inspector A's wife knows that Inspector A was examining the evidence at the docks and so she asks him, "Is that right?"
+	
+>**Inspector A replies, "What the Chief said is true."**
+	
+>Meanwhile, Inspector B reviews the security camera footage and concludes that the footage proves that Fat Tony did not die at the docks. That evening he watches the same TV broadcast with his wife, and they also hear the Chief tell the reporters, "Fat Tony could have died at the docks."
+	
+>Inspector B's wife knows that Inspector B was examining the evidence at the docks and so she asks him, "Is that right?"
+	
+>**Inspector B replies, "What the Chief said is false."**
+
+Two other conditions differed slightly from these. In one, participants instead evaluated a **Non-Modal** claim. These cases were identical to the preceding ones except that the Inspectors'/Chief's claim(s) did not include the epistemic modal, and thus instead read: "Fat Tony died [did not die] at the docks." In the other, participants instead evaluated an **Attitude** claim. These cases were identical to the preceding ones except that the Inspectors'/Chief's claim(s) took the form of an attitude report, and thus instead read: "I [think / don't think] Fat Tony died at the docks."
+
+Finally, other pariticpants instead assessed **Indexical** statements. In the **Indexical Utterances** case, the **Background** continued as follows:
+
+>Inspector A takes a good look at the evidence down by the docks, and concludes that it suggests, but does not prove, that Fat Tony died at the docks. Later that evening, Inspector A gets a call from the Chief. The Chief knows that certificates of appreciation are being given to officers who have served on the police force for at least twenty years, so he asks Inspector A, "How long have you served on the police force?"
+
+>**Inspector A replies, "I have served on the police force for twenty years."**
+	
+>Meanwhile, Inspector B reviews the security camera footage and concludes that the footage proves that Fat Tony did \textbf{not} die at the docks. Later that evening, Inspector B gets a call from the District Attorney. The District Attorney also knows that certificates of appreciation are being given to officers who have served on the police force for at least twenty years, so he asks Inspector B, "How long have you served on the police force?"
+	
+>**Inspector B replies, "I have not served on the police force for twenty years."**
+
+In the **Indexical Assessments** condition, the two inspectors instead made two different claims about the truth of the Chief's utterance:
+
+>Inspector A takes a good look at the evidence down by the docks, and concludes that it suggests, but does not prove, that Fat Tony died at the docks. Afterwards, he goes home. That evening, Inspector A and his wife watch the Chief of Police talking with reporters on TV. The reporter on the news knows that certificates of appreciation are being given to officers who have served on the police force for at least twenty years, so she asks the Chief, "How long have you served on the police force?"
+	
+>**The Chief tells the reporters: "I have served on the police force for twenty years."**
+	
+>Inspector A's wife knows that Inspector A is on the police force, and so she asks him, "Is that right?"
+	
+>**Inspector A replies, "What the Chief said is true."**
+
+>Meanwhile, Inspector B reviews the security camera footage and concludes that the footage proves that Fat Tony did not die at the docks. That evening he watches the same TV broadcast with his wife, and they also hear the Chief say to the reporter, "I have served on the police force for twenty years."
+	
+>Inspector B's wife knows that Inspector B was also on the police force, and so she asks him, "Is that right?"
+	
+>**Inspector B replies, "What the Chief said is false."**
+
+### Questions
+
+After reading the entire vignette, participants were reminded that the inspectors had made two different claims and were asked whether they agreed or disagreed that "At least one of the inspector's claims must be false." Participants rated their agreement on a scale from 1 ("Completely Disagree") to 7 ("Completely Agree"").
+
+After answering this question, participants also answered a manipulation check question. In the **Modal**, **Non-Modal**, and **Attitude** conditions, participants were asked to make a judgment about what was more relevant in Inspector A's conversation and, then separately, in Inspector B's conversation, which allowed us to test whether they tracked the differences across these two conversational contexts. In both cases, participants responded by selecting which of the following two options was more relevant in each conversation:
+
+* What the evidence at the docks reveals about Fat Tony.
+* What the security camera footage reveals about Fat Tony. 
+
+In the **Indexical** conditions, participants were instead separately asked who both Inspector A and Inspector B think has served on the police force for twenty years. They responded by selecting one of the following three options for each Inspector:
+
+* Inspector A
+* Inspector B
+* The Chief
+
+Finally, participants completed a brief and optional demographic questionnaire which included questions about their age, gender, ethnicity, education, and SES.
+
+### Manipulation Check Questions
+
+```{r cleaning, echo=F, warning=F, results="asis"}
+
+d3$time <- rowSums(d3[,grep("Page.Submit",names(d3))],na.rm=T)
+#hist(d3$time[d3$time<100], breaks=50)
+#d3 <- d3[d3$time>30,] Looks like a reasonable cutoff if you want to do time-based exclusion. 
+
+d3$check1 <- rowSums(d3[,grep("rel1",names(d3))],na.rm=T)
+d3$check2 <- rowSums(d3[,grep("rel2",names(d3))],na.rm=T)
+
+d3l <- d3 %>% select(c(9,18,25,32,39,46,53,60,67,82:84)) %>% 
+             gather(question,value,-c(1,10:12),na.rm=T) %>%
+             mutate(question = factor(question),
+                    statement = factor(c("Modal","Bare","Attitude","Attitude","Indexical","Indexical","Modal","Bare")[question]),
+                    condition = factor(c("Utterances","Utterances","Utterances","Assessments",
+                                         "Assessments","Utterances","Assessments","Assessments")[question])
+                    )
+
+d3.sum <- d3l %>% group_by(statement,condition) %>% 
+                    summarise(N    = length(value),
+                    mean = mean(value, na.rm=TRUE),
+                    sd   = sd(value,na.rm=TRUE),
+                    se   = sd / sqrt(N) )
+
+
+# var.test(d3l$value[d3l$statement=="Indexical" & d3l$condition=="Utterances"]
+#          ,d3l$value[d3l$statement=="Indexical" & d3l$condition=="Assessments"])
+index.t <- t.test(d3l$value[d3l$statement=="Indexical" & d3l$condition=="Utterances"]
+                  ,d3l$value[d3l$statement=="Indexical" & d3l$condition=="Assessments"],var.equal = T)
+index.d <- cohensD(d3l$value[d3l$statement=="Indexical" & d3l$condition=="Utterances"]
+                   ,d3l$value[d3l$statement=="Indexical" & d3l$condition=="Assessments"])
+
+d3.index <- d3l[d3l$statement=="Indexical",]
+d3.index$check1 <- factor(c("Inspector A","Inspector B","The Chief")[d3.index$check1])
+d3.index$check2 <- factor(c("Inspector A","Inspector B","The Chief")[d3.index$check2])
+
+index.u1 <- xtable(table(d3.index$check1[d3.index$condition=="Utterances"]),
+                   caption = "Utterances: Who did Inspector A have in mind?")
+index.u2 <- xtable(table(d3.index$check2[d3.index$condition=="Utterances"]),
+                   caption = "Utterances: Who did Inspector B have in mind?")
+index.a1 <- xtable(table(d3.index$check1[d3.index$condition=="Assessments"]),
+                   caption = "Assessments: Who did Inspector A have in mind?")
+index.a2 <- xtable(table(d3.index$check2[d3.index$condition=="Assessments"]),
+                   caption = "Assessments: Who did Inspector B have in mind?")
+
+colnames(index.u1) <- "n"
+colnames(index.u2) <- "n"
+colnames(index.a1) <- "n"
+colnames(index.a2) <- "n"
+
+modal.chi <- chisq.test(rbind(table(d3l$check1[d3l$statement!="Indexical"]),table(d3l$check2[d3l$statement!="Indexical"])))
+modal.v <- cramersV(rbind(table(d3l$check1[d3l$statement!="Indexical"]),table(d3l$check2[d3l$statement!="Indexical"])))
+
+
+```
+
+We first analyzed participants' responses in the **Modal** and **Non-Modal** conditions. To ensure that participants correctly understood the relevant differences in Inspector A's and Inspector B's contexts, we first assessed participants' judgments of which evidence was most relevant in the two contexts. For both the modal and non-modal conditions, these judgments of relevance confirmed that participants largely tracked the changes in the different contexts: participants found the evidence at the docks to be more relevant in Inspector A's context, and found the evidence from the security camera to be more relevant in Inspector B's context, $\chi^2(1) =$ `r round(modal.chi$statistic[[1]],digits=2)`, $p < $ `r max(.001,round(modal.chi$p.value, digits =3))`, $V =$ `r round(modal.v,digits=2)`.
+
+```{r check, echo=F,results="asis"}
+
+d3.modal <- d3l[d3l$statement!="Indexical",]
+d3.modal$check1 <- factor(c("Evdience at docks","Evidence on Camera")[d3.modal$check1])
+d3.modal$check2 <- factor(c("Evdience at docks","Evidence on Camera")[d3.modal$check2])
+
+modal.u1 <- xtable(table(d3.modal$check1[d3.modal$condition=="Utterances"]), 
+                   caption = "Utterances: What was more relevant in Inspector A's context?")
+modal.u2 <- xtable(table(d3.modal$check2[d3.modal$condition=="Utterances"]),
+                   caption = "Utterances: What was more relevant in Inspector B's context?")
+modal.a1 <- xtable(table(d3.modal$check1[d3.modal$condition=="Assessments"]),
+                   caption = "Assessments: What was more relevant in Inspector A's context?")
+modal.a2 <- xtable(table(d3.modal$check2[d3.modal$condition=="Assessments"]),
+                   caption = "Assessments: What was more relevant in Inspector B's context?")
+
+colnames(modal.u1) <- "n"
+colnames(modal.u2) <- "n"
+colnames(modal.a1) <- "n"
+colnames(modal.a2) <- "n"
+```
+
+
+### Replication
+
+Following [@khoo2019new], we first analyzed participants' judgments of whether one of the Inspectors' claims must be false in the Indexical condition. In the \textbf{Indexical Utterances} condition, where Inspector A says, ``I have served on the force for more than twenty years,'' and Inspector B says ``I have not served on the force for more than twenty years,'' participants strongly disagreed that at least one of the Inspectors claims must be false  ($M =$ `r round(d3.sum$mean[d3.sum$statement=="Indexical" & d3.sum$condition=="Utterances"], digits=2)`, $SD =$ `r round(d3.sum$sd[d3.sum$statement=="Indexical" & d3.sum$condition=="Utterances"], digits=2)`). However, in the **Indexical Assessments** condition, where the two Inspectors made conflicting assessments about the Chief's utterance of "I have served on the police force for twenty years," participants instead strongly agreed that at least one of the Inspectors claims must be false ($M =$ `r round(d3.sum$mean[d3.sum$statement=="Indexical" & d3.sum$condition=="Assessments"], digits=2)`, $SD =$ `r round(d3.sum$sd[d3.sum$statement=="Indexical" & d3.sum$condition=="Assessments"], digits=2)`), $t$(`r round(index.t$parameter, digits=2)`$) =$  `r round(index.t$statistic,digits=2)`,  $d =$ `r round(index.d,digits=2)`.
+
+```{r anova, echo=FALSE, warning=F, results="asis"}
+
+modal.F <- anova(lm(value ~ statement * condition, data=d3l[d3l$statement!="Indexical",]))
+modal.eta <- etaSquared(lm(value ~ statement * condition, data=d3l[d3l$statement!="Indexical",]))
+
+anova.table <- xtable(modal.F)
+
+#print.xtable(anova.table,comment = F)
+
+modal.des <- d3l %>% filter(statement!="Indexical") %>%
+               group_by(statement) %>% 
+               summarise(
+                  mean = mean(value, na.rm=TRUE),
+                  sd   = sd(value,na.rm=TRUE)
+                )
+ 
+
+### Replication
+
+modal.F <- anova(lm(value ~ statement * condition, data=d3l[d3l$statement!="Indexical" & d3l$statement!="Attitude",]))
+modal.eta <- etaSquared(lm(value ~ statement * condition, data=d3l[d3l$statement!="Indexical" & d3l$statement!="Attitude",]))
+
+
+# Modal v Bare:
+
+# var.test(d3l$value[d3l$statement=="Modal"]
+#          ,d3l$value[d3l$statement=="Bare"])
+modalvBare.t <- t.test(d3l$value[d3l$statement=="Modal"]
+                  ,d3l$value[d3l$statement=="Bare"])
+modalvBare.d <- cohensD(d3l$value[d3l$statement=="Modal"]
+                   ,d3l$value[d3l$statement=="Bare"])
+
+
+### Extension
+
+attitude.F <- anova(lm(value ~ statement * condition, data=d3l[d3l$statement!="Indexical" & d3l$statement!="Modal",]))
+attitude.eta <- etaSquared(lm(value ~ statement * condition, data=d3l[d3l$statement!="Indexical" & d3l$statement!="Modal",]))
+
+
+# Attitude v Bare:
+
+# var.test(d3l$value[d3l$statement=="Attitude"]
+#          ,d3l$value[d3l$statement=="Bare"])
+attitudevBare.t <- t.test(d3l$value[d3l$statement=="Attitude"]
+                  ,d3l$value[d3l$statement=="Bare"])
+attitudevBare.d <- cohensD(d3l$value[d3l$statement=="Attitude"]
+                   ,d3l$value[d3l$statement=="Bare"])
+
+# Modal v Attitude
+
+# var.test(d3l$value[d3l$statement=="Modal"]
+#          ,d3l$value[d3l$statement=="Attitude"])
+modalvAttitude.t <- t.test(d3l$value[d3l$statement=="Modal"]
+                  ,d3l$value[d3l$statement=="Attitude"])
+modalvAttitude.d <- cohensD(d3l$value[d3l$statement=="Modal"]
+                   ,d3l$value[d3l$statement=="Attitude"])
+
+
+```
+
+Next, we analyzed participants' compatibility judgments in the \textbf{Modal} and \textbf{Non-Modal} conditions with a 2 (Statement: Bare vs. Modal) $\times$ 2 (Condition: Utterances vs. Assessments) ANOVA. Replicating [@khoo2019new], participants' judgments were significantly affected by whether or not the claims involved a bare assertion or an epistemic modal claim, $F$ (`r modal.F$Df[1]`,`r modal.F$Df[4]`) = `r round(modal.F[1,4],digits=2)`, $p <$ `r max(.001, round(modal.F[1,5], digits=3))`, $\eta_p^2 =$ `r round(modal.eta[1,2], digits=3)`. More specifically, we found that participants more strongly agreed that one of the inspectors' claims must be false when they uttered/assessed a bare assertion ($M =$ `r round(modal.des$mean[modal.des$statement=="Bare"],digits=2)`, $SD =$ `r round(modal.des$sd[modal.des$statement=="Bare"],digits=2)`), than when they uttered/assessed a modal claim ($M =$ `r round(modal.des$mean[modal.des$statement=="Modal"],digits=2)`, $SD =$ `r round(modal.des$sd[modal.des$statement=="Modal"],digits=2)`), $t$(`r round(modalvBare.t$parameter, digits=2)`$) =$ `r round(modalvBare.t$statistic, digits=2)`, $p =$ `r max(.001,round(modalvBare.t$p.value,digits=3))`,  $d =$ `r round(modalvBare.d,digits=2)`. As in [@khoo2019new], we also did not observe a significant effect of whether the Inspectors made conflicting utterances or conflicting assessments, $F$(`r modal.F$Df[2]`,`r modal.F$Df[4]`) = `r round(modal.F[2,4],digits=2)`, $p =$ `r max(.001, round(modal.F[2,5], digits=3))`, $\eta_p^2 =$ `r round(modal.eta[2,2], digits=3)`, and did not find an interaction effect between these two variables, $F$(`r modal.F$Df[3]`,`r modal.F$Df[4]`) = `r round(modal.F[3,4],digits=2)`, $p =$ `r max(.001, round(modal.F[3,5], digits=3))`, $\eta_p^2 <$ `r max(.001,round(modal.eta[3,2], digits=3))`, meaning that the difference between the different claims (\textbf{Bare} vs. \textbf{Modal}) did not significantly differ between the \textbf{Assessments} and \textbf{Utterances} conditions.
+
+
+### Extension
+
+We then asked whether the pattern we observed in the modal condition could similarly be found in the attitude report condition. Specifically, we did a similar analysis to that in [@khoo2019new] but replaced the modal condition with the attitude condition. Once again, we found that participants' judgments were significantly affected by whether or not the claims involved a bare assertion or an attitude report, $F$ (`r attitude.F$Df[1]`,`r attitude.F$Df[4]`) = `r round(attitude.F[1,4],digits=2)`, $p =$ `r max(.001, round(attitude.F[1,5], digits=3))`, $\eta_p^2 =$ `r round(attitude.eta[1,2], digits=3)`. Specifically, we found that participants more strongly agreed that one of the inspectors' claims must be false when they uttered/assessed a bare assertion ($M =$ `r round(modal.des$mean[modal.des$statement=="Bare"],digits=2)`, $SD =$ `r round(modal.des$sd[modal.des$statement=="Bare"],digits=2)`), than when they uttered/assessed an attitude report ($M =$ `r round(modal.des$mean[modal.des$statement=="Attitude"],digits=2)`, $SD =$ `r round(modal.des$sd[modal.des$statement=="Attitude"],digits=2)`), $t$(`r round(attitudevBare.t$parameter, digits=2)`$) =$ `r round(attitudevBare.t$statistic,digits=2)`, $p =$ `r round(attitudevBare.t$p.value,digits=3)`, $d =$ `r round(attitudevBare.d,digits=2)`. We again  did not observe a significant effect of whether the Inspectors made conflicting utterances or conflicting assessments, $F$(`r attitude.F$Df[2]`,`r attitude.F$Df[4]`) = `r round(attitude.F[2,4],digits=2)`, $p =$ `r max(.001, round(attitude.F[2,5], digits=3))`, $\eta_p^2 <$ `r max(.001,round(attitude.eta[2,2], digits=3))`, and did not find an interaction effect between these two variables, $F$(`r attitude.F$Df[3]`,`r attitude.F$Df[4]`) = `r round(attitude.F[3,4],digits=2)`, $p =$ `r max(.001, round(attitude.F[3,5], digits=3))`, $\eta_p^2 =$ `r max(.001,round(attitude.eta[3,2], digits=3))`, meaning that the difference between the different claims (\textbf{Bare} vs. \textbf{Attitude}) did not significantly differ between the \textbf{Assessments} and \textbf{Utterances} conditions.
+
+Finally, the \textbf{Modal} and \textbf{Attitude} conditions did not differ significantly from one another, $t$(`r round(modalvAttitude.t$parameter, digits=2)`$) =$ `r round(modalvAttitude.t$statistic,digits=2)`,  $d =$ `r round(modalvAttitude.d,digits=2)`.
+
+```{r graphs, echo=F, warning=F, fig.width=6.5, fig.height=3.25, fig.cap= "Participants' mean level of agreement that at least one of the inspectors' claims must be false. Errors bars indicate +/- 1 *SEM*."}
+
+d3.sum$condition <- factor(d3.sum$condition, levels=c("Assessments","Utterances"))
+d3.sum$statement <- factor(d3.sum$statement, levels=c("Indexical","Bare","Modal","Attitude"))
+
+d3.plota <- ggplot(d3.sum[d3.sum$statement=="Indexical",], aes(x=condition, y=mean, fill=condition)) +
+  geom_bar(stat="identity", position="dodge") +
+  scale_fill_manual(values=blackGreyPalette) +
+  ylab("Agreement: One must be false") +
+  xlab("") +
+  facet_wrap(~ statement) +
+  coord_cartesian(ylim=c(2,7)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1, position=position_dodge(.9)) +
+  theme_bw() +
+  theme(
+    plot.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,legend.position="null"
+    ,legend.title=element_blank()
+    ,legend.text=element_text(size=rel(1))
+    ,axis.text.x=element_blank()
+    ,axis.ticks=element_blank()
+    ,axis.text.y=element_text(size=rel(1))
+    ,axis.title=element_text(size=rel(1))
+    ,strip.text = element_text(size = rel(1))
+    ,axis.title.y = element_text(vjust = 0.75)
+    ,axis.title.x = element_text(vjust = 0.75)
+  )
+
+d3.plotb <- ggplot(d3.sum[d3.sum$statement!="Indexical",], aes(x=condition, y=mean, fill=condition)) +
+  geom_bar(stat="identity", position="dodge") +
+  scale_fill_manual(values=blackGreyPalette) +
+  ylab("Agreement: One must be false") +
+  xlab("") +
+  facet_wrap(~statement) +
+  coord_cartesian(ylim=c(2,7)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.1, position=position_dodge(.9)) +
+  theme_bw() +
+  theme(
+    plot.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,legend.position=c(.5,.85)
+    ,legend.title=element_blank()
+    ,legend.text=element_text(size=rel(1))
+    ,axis.text.x=element_blank()
+    ,axis.text.y=element_text(size=rel(1))
+    ,axis.ticks=element_blank()
+    ,axis.title=element_text(size=rel(1))
+    ,strip.text = element_text(size = rel(1))
+    ,axis.title.y = element_text(vjust = 0.75)
+    ,axis.title.x = element_text(vjust = 0.75)
+  )
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+multiplot(d3.plota,d3.plotb, layout=matrix(c(1,1,2,2,2,2,2,2),1,8))
+```
+
+\clearpage
+
+
+<!--
+
+### Tables
+
+```{r tables, echo=F, results="asis"}
+
+print.xtable(modal.u1,comment=F)
+print.xtable(modal.u2,comment=F)
+print.xtable(modal.a1,comment=F)
+print.xtable(modal.a2,comment=F)
+
+print.xtable(index.u1,comment=F)
+print.xtable(index.u2,comment=F)
+print.xtable(index.a1,comment=F)
+print.xtable(index.a2,comment=F)
+
+```
+
+
+Comments:
+
+-->
